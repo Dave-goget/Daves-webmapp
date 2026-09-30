@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Story Map</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<style>
+  :root {
+    --ink: #1d1d1d;
+    --muted: rgba(255,255,255,0.75);
+    --panel: rgba(26, 32, 36, 0.9);
+    --panel-border: rgba(255,255,255,0.14);
+    --shadow: rgba(0, 0, 0, 0.25);
+    --paper: #e8e6e0;
+    --button-bg: rgba(255,255,255,0.9);
+    --button-border: rgba(31,31,31,0.18);
+    --accent: #dfe8eb;
+    --map-water: #b5dbe6;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+  }
+
+  body {
+    overflow: hidden;
+  }
+
+  #app {
+    position: relative;
+    height: 100%;
+    background: var(--paper);
+  }
+
+  .topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px 8px 20px;
+    background: rgba(31, 35, 38, 0.8);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(6px);
+    z-index: 500;
+  }
+
+  .topbar .title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: #f2f3f4;
+  }
+
+  .topbar .title-text {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  .topbar .star {
+    color: rgba(255,255,255,0.9);
+  }
+
+  .draft-pill {
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.8);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+
+  .top-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(255,255,255,0.8);
+    font-size: 11px;
+  }
+
+  .chip {
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    color: rgba(255,255,255,0.82);
+    padding: 5px 10px;
+    font-size: 11px;
+    line-height: 1;
+  }
+
+  .chip--ghost {
+    padding: 8px 12px;
+  }
+
+  #map {
+    position: absolute;
+    inset: 52px 0 0 0;
+    background: #dfe9ee;
+  }
+
+  .leaflet-container {
+    background: var(--map-water);
+    font: inherit;
+  }
+
+  .leaflet-control-attribution {
+    background: rgba(255,255,255,0.5) !important;
+    border-radius: 6px 0 0 0;
+    padding: 2px 6px !important;
+    color: rgba(30,33,36,0.7) !important;
+    font-size: 10px !important;
+  }
+
+  .leaflet-control-attribution a {
+    color: rgba(30,33,36,0.8) !important;
+  }
+
+  .leaflet-control-zoom {
+    border: 1px solid rgba(71, 76, 78, 0.25) !important;
+    border-radius: 7px !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12) !important;
+    overflow: hidden;
+  }
+
+  .leaflet-control-zoom a {
+    width: 30px !important;
+    height: 30px !important;
+    line-height: 30px !important;
+    color: #31373b !important;
+    background: rgba(250,250,250,0.92) !important;
+    border-bottom: 1px solid rgba(60, 67, 70, 0.18) !important;
+    font-size: 22px !important;
+    font-weight: 400 !important;
+  }
+
+  .leaflet-control-zoom a:last-child {
+    border-bottom: none !important;
+  }
+
+  .leaflet-control-zoom a:hover {
+    background: #fff !important;
+  }
+
+  .status {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    background: rgba(246,244,239,0.9);
+    border: 1px solid rgba(0,0,0,0.12);
+    padding: 7px 10px;
+    font-size: 11px;
+    color: #45515a;
+    border-radius: 4px;
+    z-index: 500;
+    display: none;
+  }
+
+  .leaflet-popup-content-wrapper {
+    border-radius: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.18);
+  }
+
+  .popup-title {
+    font-family: 'Georgia', serif;
+    font-size: 0.82rem;
+    margin: 0 0 2px;
+  }
+
+  .popup-risk {
+    font-size: 0.74rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .popup-risk--high {
+    color: #d93025;
+  }
+
+  .popup-risk--low {
+    color: #9a7200;
+  }
+
+  .popup-risk--unknown {
+    color: #555;
+  }
+
+  .popup-risk--convention-drone-data {
+    color: #1976d2;
+  }
+
+  .popup-img {
+    display: block;
+    width: 400px;
+    max-width: calc(100vw - 80px);
+    height: auto;
+    border-radius: 4px;
+    margin-bottom: 5px;
+  }
+
+  .popup-desc {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin: 0;
+    color: #333;
+  }
+
+  .sidebar {
+    position: absolute;
+    top: 52px;
+    left: 0;
+    width: 290px;
+    height: calc(100% - 52px);
+    background: rgba(245, 245, 242, 0.94);
+    border-right: 1px solid rgba(20, 20, 20, 0.12);
+    box-shadow: 8px 0 24px rgba(0,0,0,0.08);
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-header {
+    padding: 16px 16px 10px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #4d555b;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    background: rgba(255,255,255,0.2);
+  }
+
+  .sidebar-list {
+    list-style: none;
+    margin: 0;
+    padding: 10px 0;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .sidebar-group-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 6px;
+    color: #4d555b;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .sidebar-group-title::-webkit-details-marker {
+    display: none;
+  }
+
+  .sidebar-group-title::after {
+    width: 6px;
+    height: 6px;
+    margin: -4px 4px 0 8px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    content: '';
+    flex: none;
+    transform: rotate(45deg);
+    transition: transform 0.15s ease, margin 0.15s ease;
+  }
+
+  details[open] > .sidebar-group-title::after {
+    margin-top: 4px;
+    transform: rotate(225deg);
+  }
+
+  .sidebar-group-items {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 14px;
+  }
+
+  .sidebar-item {
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: #1d2328;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    transition: background 0.15s ease;
+  }
+
+  .sidebar-item:hover,
+  .sidebar-item:focus {
+    background: rgba(58, 116, 87, 0.08);
+    outline: none;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="title-wrap">
+      <div class="title-text">Untitled map</div>
+    </div>
+  </header>
+
+  <div id="map" aria-label="Story map"></div>
+
+  <aside class="sidebar" aria-label="Annotation list">
+    <div class="sidebar-header">Sampled locations</div>
+    <ul id="annotation-list" class="sidebar-list"></ul>
+  </aside>
+
+  <div class="status" id="status"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+  const statusEl = document.getElementById('status');
+  const map = L.map('map', {
+    zoomControl: false,
+    attributionControl: true,
+    preferCanvas: true
+  }).setView([48.85, 12.35], 5);
+
+  L.control.zoom({ position: 'topright' }).addTo(map);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  function markerIconForRisk(risk) {
+    const normalizedRisk = String(risk).trim().toLowerCase();
+    const color = normalizedRisk === 'high' ? '#e53935' :
+      normalizedRisk === 'low' ? '#f4d03f' :
+      normalizedRisk === 'convention drone data' ? '#1976d2' : '#8a8a8a';
+
+    return L.divIcon({
+      className: '',
+      html: '<div style="width:12px;height:12px;border-radius:50%;background:' + color + ';border:1px solid rgba(255,255,255,0.9);box-shadow:0 0 0 1px rgba(0,0,0,0.18);"></div>',
+      iconSize: [12, 12],
+      iconAnchor: [6, 6],
+      popupAnchor: [0, -6]
+    });
+  }
+
+  function showStatus(msg) {
+    statusEl.textContent = msg;
+    statusEl.style.display = 'block';
+  }
+
+  function parseAnnotationFilename(fileName) {
+    const match = fileName.match(/\((-?\d+(?:\.\d+)?)\)_\((-?\d+(?:\.\d+)?)\)/);
+    if (!match) return null;
+
+    const lat = parseFloat(match[1]);
+    const lon = parseFloat(match[2]);
+    if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
+
+    return { lat, lon };
+  }
+
+  function getLocationLabel(fileName) {
+    const baseName = fileName.replace(/\.(?:png|webp)$/i, '');
+    const suffixMatch = baseName.match(/_(\d+)$/);
+    const number = suffixMatch ? suffixMatch[1] : 'unknown';
+    return 'Location ' + number;
+  }
+
+  function coordinateKey(lat, lon) {
+    return Number(lat).toFixed(9) + ',' + Number(lon).toFixed(9);
+  }
+
+  const annotationItems = [];
+
+  function renderAnnotationList() {
+    const listEl = document.getElementById('annotation-list');
+    if (!listEl) return;
+
+    listEl.innerHTML = '';
+
+    const riskGroups = new Map();
+    annotationItems.forEach(function(item) {
+      if (!riskGroups.has(item.risk)) riskGroups.set(item.risk, []);
+      riskGroups.get(item.risk).push(item);
+    });
+
+    const riskOrder = ['High', 'Medium', 'Low', 'CONVENTION DRONE DATA', 'Unknown'];
+    const risks = Array.from(riskGroups.keys()).sort(function(a, b) {
+      const aOrder = riskOrder.indexOf(a);
+      const bOrder = riskOrder.indexOf(b);
+      if (aOrder === -1 && bOrder === -1) return a.localeCompare(b);
+      if (aOrder === -1) return 1;
+      if (bOrder === -1) return -1;
+      return aOrder - bOrder;
+    });
+
+    risks.forEach(function(risk) {
+      const group = document.createElement('li');
+      const disclosure = document.createElement('details');
+      const title = document.createElement('summary');
+      const items = document.createElement('ul');
+      title.className = 'sidebar-group-title';
+      const groupLabel = risk === 'CONVENTION DRONE DATA' ? risk : risk + ' risk';
+      title.textContent = groupLabel + ' (' + riskGroups.get(risk).length + ')';
+      items.className = 'sidebar-group-items';
+
+      riskGroups.get(risk).forEach(function(item) {
+        const li = document.createElement('li');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'sidebar-item';
+        button.textContent = item.name;
+        button.addEventListener('click', function() {
+          map.flyTo([item.lat, item.lon], 18, { duration: 1.4 });
+          item.marker.openPopup();
+        });
+        li.appendChild(button);
+        items.appendChild(li);
+      });
+
+      disclosure.appendChild(title);
+      disclosure.appendChild(items);
+      group.appendChild(disclosure);
+      listEl.appendChild(group);
+    });
+  }
+
+  async function loadAnnotationPoints() {
+    try {
+      const responses = await Promise.all([
+        fetch('../annotation_png/manifest.json'),
+        fetch('../Estimation_Results_ADA_September.csv'),
+        fetch('../Convention_1_png/manifest.json'),
+        fetch('../Polygons.geojson'),
+        fetch('../Polygons_1.geojson')
+      ]);
+      if (!responses.every(function(response) { return response.ok; })) {
+        throw new Error('Could not load annotation data');
+      }
+
+      const fileNames = await responses[0].json();
+      const conventionFileNames = await responses[2].json();
+      const polygonData = await responses[3].json();
+      const polygon1Data = await responses[4].json();
+      if (!Array.isArray(fileNames) || !Array.isArray(conventionFileNames)) {
+        throw new Error('Annotation manifest must be a list of filenames');
+      }
+
+      const riskData = Papa.parse(await responses[1].text(), {
+        header: true,
+        skipEmptyLines: true
+      });
+      if (riskData.errors.length || !riskData.meta.fields.includes('map_x') ||
+          !riskData.meta.fields.includes('map_y') || !riskData.meta.fields.includes('risk')) {
+        throw new Error('Risk CSV must contain valid map_x, map_y, and risk fields');
+      }
+
+      const risksByCoordinate = new Map();
+      riskData.data.forEach(function(row) {
+        const risk = (row.risk || '').trim();
+        if (row.map_x && row.map_y && risk) {
+          risksByCoordinate.set(coordinateKey(row.map_x, row.map_y), risk);
+        }
+      });
+
+      const polygonLayer = L.geoJSON(polygonData, {
+        style: {
+          color: '#155f8a',
+          weight: 3,
+          opacity: 0.9,
+          fillColor: '#5ca6c8',
+          fillOpacity: 0.16
+        }
+      }).addTo(map);
+      const polygon1Layer = L.geoJSON(polygon1Data, {
+        style: {
+          color: '#a51d25',
+          weight: 3,
+          opacity: 0.95,
+          fillColor: '#e53935',
+          fillOpacity: 0.24
+        }
+      }).addTo(map);
+      L.control.layers(null, {
+        'Convention boundary': polygonLayer,
+        'Polygon 1 (red)': polygon1Layer
+      }, {
+        position: 'topright',
+        collapsed: false
+      }).addTo(map);
+
+      const imageCollections = [
+        { fileNames: fileNames, folder: '../annotation_png/', label: 'September' },
+        { fileNames: conventionFileNames, folder: '../Convention_1_png/', label: 'Convention 1' }
+      ];
+      const bounds = [];
+      const seen = new Set();
+
+      imageCollections.forEach(function(collection) {
+        collection.fileNames.forEach(function(fileName) {
+          const imageKey = collection.folder + fileName;
+          if (!/\.(?:png|webp)$/i.test(fileName) || seen.has(imageKey)) return;
+
+          const coords = parseAnnotationFilename(fileName);
+          if (!coords) return;
+
+          seen.add(imageKey);
+
+          const imageUrl = collection.folder + encodeURIComponent(fileName);
+          const risk = collection.label === 'September' ?
+            risksByCoordinate.get(coordinateKey(coords.lat, coords.lon)) || 'Unknown' : 'CONVENTION DRONE DATA';
+          const marker = L.marker([coords.lat, coords.lon], { icon: markerIconForRisk(risk) }).addTo(map);
+          const popupTitle = collection.label + ' - ' + getLocationLabel(fileName);
+          const riskClass = risk.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+          const popupHtml = '<img class="popup-img" src="' + imageUrl + '" alt="' + escapeHtml(popupTitle) + '" onerror="this.style.display=\'none\'" />' +
+            '<div class="popup-title">' + escapeHtml(popupTitle) + '</div>' +
+            '<div class="popup-risk popup-risk--' + riskClass + '">' +
+            (risk === 'CONVENTION DRONE DATA' ? escapeHtml(risk) : 'Risk: ' + escapeHtml(risk)) + '</div>';
+
+          marker.bindPopup(popupHtml, { maxWidth: 440 });
+          bounds.push([coords.lat, coords.lon]);
+
+          annotationItems.push({
+            name: popupTitle,
+            lat: coords.lat,
+            lon: coords.lon,
+            risk: risk,
+            marker: marker
+          });
+        });
+      });
+
+      renderAnnotationList();
+
+      if (bounds.length > 0) {
+        const displayBounds = L.latLngBounds(bounds);
+        if (polygonLayer.getBounds().isValid()) displayBounds.extend(polygonLayer.getBounds());
+        if (polygon1Layer.getBounds().isValid()) displayBounds.extend(polygon1Layer.getBounds());
+        map.fitBounds(displayBounds, { padding: [60, 60], maxZoom: 14 });
+      } else {
+        showStatus('No valid images were found in the image manifests.');
+      }
+    } catch (error) {
+      console.error(error);
+      showStatus('Could not load the map data. Make sure the local server is running from the project folder and both image folders and manifests are present.');
+    }
+  }
+
+  loadAnnotationPoints();
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>

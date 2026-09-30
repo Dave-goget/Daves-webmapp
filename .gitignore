@@ -1,0 +1,21 @@
+/.venv/
+__pycache__/
+Thumbs.db
+.DS_Store
+/annotation_png/*.png
+/Convention_1_png/*.png
+
+# deployment leftovers / duplicate hosting configs
+.firebase/
+.firebaserc
+.wrangler/
+public/
+firebase.json
+netlify.toml
+wrangler.jsonc
+
+# environment files
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example

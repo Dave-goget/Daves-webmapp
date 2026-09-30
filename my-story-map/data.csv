@@ -1,0 +1,4 @@
+name,lat,lon,description,image
+Point One,6.6885,-1.6244,"A short description of this location goes here. Replace this with your own text.",images/point1.jpg
+Point Two,6.6720,-1.5830,"Another point with its own story and photo.",images/point2.jpg
+Point Three,6.7010,-1.6490,"A third example point — add as many rows as you like.",images/point3.jpg
