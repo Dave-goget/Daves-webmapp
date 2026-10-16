@@ -583,22 +583,18 @@
   async function loadAnnotationPoints() {
     try {
       const responses = await Promise.all([
-        fetch('../annotation_png_Convention/manifest.json'),
-        fetch('../annotation_png_Intervention/manifest.json'),
+        fetch('../annotation_folders.json'),
+        fetch('../boundary_layers.json'),
         fetch('../Estimation_Results_Intervention_site.csv'),
-        fetch('../Polygons.geojson'),
-        fetch('../Polygons_1.geojson')
       ]);
       if (!responses.every(function(response) { return response.ok; })) {
         throw new Error('Could not load annotation data');
       }
 
-      const conventionFileNames = await responses[0].json();
-      const interventionFileNames = await responses[1].json();
-      const polygonData = await responses[3].json();
-      const polygon1Data = await responses[4].json();
-      if (!Array.isArray(conventionFileNames) || !Array.isArray(interventionFileNames)) {
-        throw new Error('Annotation manifests must be lists of filenames');
+      const imageCollections = await responses[0].json();
+      const boundaryDefinitions = await responses[1].json();
+      if (!Array.isArray(imageCollections) || !Array.isArray(boundaryDefinitions)) {
+        throw new Error('Annotation and boundary registries must be lists');
       }
 
       const riskData = Papa.parse(await responses[2].text(), {
@@ -618,36 +614,37 @@
         }
       });
 
-      const polygonLayer = L.geoJSON(polygonData, {
-        style: {
-          color: '#155f8a',
-          weight: 3,
-          opacity: 0.9,
-          fillColor: '#5ca6c8',
-          fillOpacity: 0.16
-        }
-      }).addTo(map);
-      const polygon1Layer = L.geoJSON(polygon1Data, {
-        style: {
-          color: '#a51d25',
-          weight: 3,
-          opacity: 0.95,
-          fillColor: '#e53935',
-          fillOpacity: 0.24
-        }
-      }).addTo(map);
-      L.control.layers(null, {
-        'Convention boundary': polygonLayer,
-        'Intervention boundary': polygon1Layer
-      }, {
-        position: 'topright',
-        collapsed: false
-      }).addTo(map);
-
-      const imageCollections = [
-        { fileNames: conventionFileNames, folder: '../annotation_png_Convention/', label: 'Convention' },
-        { fileNames: interventionFileNames, folder: '../annotation_png_Intervention/', label: 'Intervention' }
+      const boundaryPalette = [
+        { color: '#155f8a', fillColor: '#5ca6c8' },
+        { color: '#a51d25', fillColor: '#e53935' },
+        { color: '#497341', fillColor: '#91b879' },
+        { color: '#8a5b15', fillColor: '#d6af65' }
       ];
+      const boundaryOverlays = {};
+      const boundaryLayers = await Promise.all(boundaryDefinitions.map(async function(definition, index) {
+        const response = await fetch(definition.file);
+        if (!response.ok) throw new Error('Could not load boundary: ' + definition.file);
+        const data = await response.json();
+        const palette = boundaryPalette[index % boundaryPalette.length];
+        const layer = L.geoJSON(data, {
+          style: {
+            color: palette.color,
+            weight: 3,
+            opacity: 0.9,
+            fillColor: palette.fillColor,
+            fillOpacity: 0.18
+          }
+        }).addTo(map);
+        boundaryOverlays[definition.label] = layer;
+        return layer;
+      }));
+      if (Object.keys(boundaryOverlays).length) {
+        L.control.layers(null, boundaryOverlays, {
+          position: 'topright',
+          collapsed: false
+        }).addTo(map);
+      }
+
       const bounds = [];
       const seen = new Set();
 
@@ -662,7 +659,7 @@
           seen.add(imageKey);
 
           const imageUrl = collection.folder + encodeURIComponent(fileName);
-          const risk = collection.label === 'Convention' ? 'CONVENTION DRONE DATA' :
+          const risk = collection.label.toLowerCase().includes('convention') ? 'CONVENTION DRONE DATA' :
             risksByCoordinate.get(coordinateKey(coords.lat, coords.lon)) || 'Unknown';
           const marker = L.marker([coords.lat, coords.lon], { icon: markerIconForRisk(risk) }).addTo(map);
           const popupTitle = collection.label + ' - ' + getLocationLabel(fileName);
@@ -689,8 +686,9 @@
 
       if (bounds.length > 0) {
         const displayBounds = L.latLngBounds(bounds);
-        if (polygonLayer.getBounds().isValid()) displayBounds.extend(polygonLayer.getBounds());
-        if (polygon1Layer.getBounds().isValid()) displayBounds.extend(polygon1Layer.getBounds());
+        boundaryLayers.forEach(function(layer) {
+          if (layer.getBounds().isValid()) displayBounds.extend(layer.getBounds());
+        });
         map.fitBounds(displayBounds, { padding: [60, 60], maxZoom: 14 });
       } else {
         showStatus('No valid images were found in the image manifests.');
