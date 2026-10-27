@@ -650,16 +650,20 @@
       ];
       const boundaryOverlays = {};
       const coordinateLayer = L.layerGroup().addTo(map);
-      const highestAreaNumber = coordinateData.data.reduce(function(highest, row) {
-        const area = (row.area || '').trim();
-        if (!/^\d+$/.test(area)) return highest;
-        return Math.max(highest, Number(area));
-      }, 0);
-      coordinateData.data.forEach(function(row) {
-        const lat = Number(row.site_latitude);
-        const lon = Number(row.site_longitude);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return;
+      const sprayingLocations = coordinateData.data.flatMap(function(row) {
+        const latValue = String(row.site_latitude || '').trim();
+        const lonValue = String(row.site_longitude || '').trim();
+        if (!latValue || !lonValue) return [];
 
+        const lat = Number(latValue);
+        const lon = Number(lonValue);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return [];
+        return [{ row: row, lat: lat, lon: lon }];
+      });
+      sprayingLocations.forEach(function(location) {
+        const row = location.row;
+        const lat = location.lat;
+        const lon = location.lon;
         const area = (row.area || '').trim();
         const community = (row.community || '').trim();
         const label = [area && 'Area ' + area, community].filter(Boolean).join(', ') || 'Spraying record';
@@ -673,8 +677,9 @@
         }).bindPopup('<strong>Human spraying point: ' + escapeHtml(label) + '</strong><br>' + lat.toFixed(6) + ', ' + lon.toFixed(6));
         coordinateLayer.addLayer(marker);
       });
-      document.getElementById('human-spraying-point-count').textContent = highestAreaNumber.toLocaleString();
-      boundaryOverlays['Human spraying point (' + highestAreaNumber.toLocaleString() + ')'] = coordinateLayer;
+      const coordinatePointCount = sprayingLocations.length;
+      document.getElementById('human-spraying-point-count').textContent = coordinatePointCount.toLocaleString();
+      boundaryOverlays['Human spraying point (' + coordinatePointCount.toLocaleString() + ')'] = coordinateLayer;
       const boundaryLayers = await Promise.all(boundaryDefinitions.map(async function(definition, index) {
         const response = await fetch(definition.file);
         if (!response.ok) throw new Error('Could not load boundary: ' + definition.file);
