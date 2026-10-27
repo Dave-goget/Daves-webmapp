@@ -447,7 +447,6 @@
       <div class="point-legend-item"><span class="legend-swatch legend-swatch--convention" aria-hidden="true"></span><span>Convention annotations</span></div>
       <div class="point-legend-item"><span class="legend-swatch legend-swatch--high" aria-hidden="true"></span><span>Intervention: high risk</span></div>
       <div class="point-legend-item"><span class="legend-swatch legend-swatch--low" aria-hidden="true"></span><span>Intervention: low risk</span></div>
-      <div class="point-legend-item"><span class="legend-swatch legend-swatch--other" aria-hidden="true"></span><span>Intervention: other or unknown</span></div>
       <div class="point-legend-item"><span class="legend-swatch legend-swatch--human" aria-hidden="true"></span><span>Human spraying point (<span id="human-spraying-point-count">0</span>)</span></div>
     </div>
     <ul id="annotation-list" class="sidebar-list"></ul>
@@ -491,13 +490,23 @@
   const map = L.map('map', {
     zoomControl: false,
     attributionControl: true,
-    preferCanvas: true
+    preferCanvas: true,
+    minZoom: 3,
+    maxZoom: 22,
+    zoomSnap: 0.5,
+    zoomDelta: 0.5,
+    zoomAnimation: false,
+    markerZoomAnimation: false,
+    fadeAnimation: false,
+    wheelDebounceTime: 20,
+    wheelPxPerZoomLevel: 40
   }).setView([48.85, 12.35], 5);
 
   L.control.zoom({ position: 'topright' }).addTo(map);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
+    maxNativeZoom: 19,
+    maxZoom: 22,
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
