@@ -604,7 +604,7 @@
         fetch('../annotation_folders.json'),
         fetch('../boundary_layers.json'),
         fetch('../Estimation_Results_Intervention_site.csv'),
-        fetch('../Annotations_Convention_Oct_coordinates%20(1).csv'),
+        fetch('../spraying%20october_conventional_Final_Final.csv'),
       ]);
       if (!responses.every(function(response) { return response.ok; })) {
         throw new Error('Could not load annotation data');
@@ -629,9 +629,9 @@
         header: true,
         skipEmptyLines: true
       });
-      if (coordinateData.errors.length || !coordinateData.meta.fields.includes('Latitude') ||
-          !coordinateData.meta.fields.includes('Longitude') || !coordinateData.meta.fields.includes('Label')) {
-        throw new Error('Convention coordinates CSV must contain valid Latitude, Longitude, and Label fields');
+      if (coordinateData.errors.length || !coordinateData.meta.fields.includes('site_latitude') ||
+          !coordinateData.meta.fields.includes('site_longitude') || !coordinateData.meta.fields.includes('area')) {
+        throw new Error('Spraying CSV must contain valid site_latitude, site_longitude, and area fields');
       }
 
       const risksByCoordinate = new Map();
@@ -652,11 +652,13 @@
       const coordinateLayer = L.layerGroup().addTo(map);
       let coordinatePointCount = 0;
       coordinateData.data.forEach(function(row) {
-        const lat = Number(row.Latitude);
-        const lon = Number(row.Longitude);
+        const lat = Number(row.site_latitude);
+        const lon = Number(row.site_longitude);
         if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return;
 
-        const label = (row.Label || '').trim() || 'Human spraying point';
+        const area = (row.area || '').trim();
+        const community = (row.community || '').trim();
+        const label = [area && 'Area ' + area, community].filter(Boolean).join(', ') || 'Spraying record';
         const marker = L.marker([lat, lon], {
           icon: L.divIcon({
             className: '',
