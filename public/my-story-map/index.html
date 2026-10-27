@@ -650,7 +650,11 @@
       ];
       const boundaryOverlays = {};
       const coordinateLayer = L.layerGroup().addTo(map);
-      let coordinatePointCount = 0;
+      const highestAreaNumber = coordinateData.data.reduce(function(highest, row) {
+        const area = (row.area || '').trim();
+        if (!/^\d+$/.test(area)) return highest;
+        return Math.max(highest, Number(area));
+      }, 0);
       coordinateData.data.forEach(function(row) {
         const lat = Number(row.site_latitude);
         const lon = Number(row.site_longitude);
@@ -668,10 +672,9 @@
           })
         }).bindPopup('<strong>Human spraying point: ' + escapeHtml(label) + '</strong><br>' + lat.toFixed(6) + ', ' + lon.toFixed(6));
         coordinateLayer.addLayer(marker);
-        coordinatePointCount += 1;
       });
-      document.getElementById('human-spraying-point-count').textContent = coordinatePointCount.toLocaleString();
-      boundaryOverlays['Human spraying point (' + coordinatePointCount.toLocaleString() + ')'] = coordinateLayer;
+      document.getElementById('human-spraying-point-count').textContent = highestAreaNumber.toLocaleString();
+      boundaryOverlays['Human spraying point (' + highestAreaNumber.toLocaleString() + ')'] = coordinateLayer;
       const boundaryLayers = await Promise.all(boundaryDefinitions.map(async function(definition, index) {
         const response = await fetch(definition.file);
         if (!response.ok) throw new Error('Could not load boundary: ' + definition.file);
