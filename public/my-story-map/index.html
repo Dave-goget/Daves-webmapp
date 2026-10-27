@@ -319,6 +319,23 @@
   .legend-swatch--high { background: #e53935; }
   .legend-swatch--low { background: #f4d03f; }
   .legend-swatch--other { background: #8a8a8a; }
+  .legend-swatch--human {
+    background: #00a6a6;
+    border: 2px solid #fff;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px #007b7b;
+    transform: rotate(45deg);
+  }
+
+  .human-spraying-marker {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #fff;
+    border-radius: 2px;
+    background: #00a6a6;
+    box-shadow: 0 0 0 1px #007b7b, 0 1px 3px rgba(0,0,0,0.45);
+    transform: rotate(45deg);
+  }
 
   .sidebar-list {
     list-style: none;
@@ -431,26 +448,9 @@
       <div class="point-legend-item"><span class="legend-swatch legend-swatch--high" aria-hidden="true"></span><span>Intervention: high risk</span></div>
       <div class="point-legend-item"><span class="legend-swatch legend-swatch--low" aria-hidden="true"></span><span>Intervention: low risk</span></div>
       <div class="point-legend-item"><span class="legend-swatch legend-swatch--other" aria-hidden="true"></span><span>Intervention: other or unknown</span></div>
-        <div class="point-legend-item"><span class="legend-swatch legend-swatch--human" aria-hidden="true"></span><span>Human spraying point (<span id="human-spraying-point-count">0</span>)</span></div>
+      <div class="point-legend-item"><span class="legend-swatch legend-swatch--human" aria-hidden="true"></span><span>Human spraying point (<span id="human-spraying-point-count">0</span>)</span></div>
     </div>
     <ul id="annotation-list" class="sidebar-list"></ul>
-    .legend-swatch--human {
-      background: #00a6a6;
-      border: 2px solid #fff;
-      border-radius: 2px;
-      box-shadow: 0 0 0 1px #007b7b;
-      transform: rotate(45deg);
-    }
-
-    .human-spraying-marker {
-      width: 14px;
-      height: 14px;
-      border: 2px solid #fff;
-      border-radius: 2px;
-      background: #00a6a6;
-      box-shadow: 0 0 0 1px #007b7b, 0 1px 3px rgba(0,0,0,0.45);
-      transform: rotate(45deg);
-    }
   </aside>
 
   <div class="status" id="status"></div>
