@@ -431,8 +431,26 @@
       <div class="point-legend-item"><span class="legend-swatch legend-swatch--high" aria-hidden="true"></span><span>Intervention: high risk</span></div>
       <div class="point-legend-item"><span class="legend-swatch legend-swatch--low" aria-hidden="true"></span><span>Intervention: low risk</span></div>
       <div class="point-legend-item"><span class="legend-swatch legend-swatch--other" aria-hidden="true"></span><span>Intervention: other or unknown</span></div>
+        <div class="point-legend-item"><span class="legend-swatch legend-swatch--human" aria-hidden="true"></span><span>Human spraying point (<span id="human-spraying-point-count">0</span>)</span></div>
     </div>
     <ul id="annotation-list" class="sidebar-list"></ul>
+    .legend-swatch--human {
+      background: #00a6a6;
+      border: 2px solid #fff;
+      border-radius: 2px;
+      box-shadow: 0 0 0 1px #007b7b;
+      transform: rotate(45deg);
+    }
+
+    .human-spraying-marker {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #fff;
+      border-radius: 2px;
+      background: #00a6a6;
+      box-shadow: 0 0 0 1px #007b7b, 0 1px 3px rgba(0,0,0,0.45);
+      transform: rotate(45deg);
+    }
   </aside>
 
   <div class="status" id="status"></div>
@@ -586,6 +604,7 @@
         fetch('../annotation_folders.json'),
         fetch('../boundary_layers.json'),
         fetch('../Estimation_Results_Intervention_site.csv'),
+        fetch('../Annotations_Convention_Oct_coordinates%20(1).csv'),
       ]);
       if (!responses.every(function(response) { return response.ok; })) {
         throw new Error('Could not load annotation data');
@@ -606,6 +625,15 @@
         throw new Error('Intervention risk CSV must contain valid map_x, map_y, and risk fields');
       }
 
+      const coordinateData = Papa.parse(await responses[3].text(), {
+        header: true,
+        skipEmptyLines: true
+      });
+      if (coordinateData.errors.length || !coordinateData.meta.fields.includes('Latitude') ||
+          !coordinateData.meta.fields.includes('Longitude') || !coordinateData.meta.fields.includes('Label')) {
+        throw new Error('Convention coordinates CSV must contain valid Latitude, Longitude, and Label fields');
+      }
+
       const risksByCoordinate = new Map();
       riskData.data.forEach(function(row) {
         const risk = (row.risk || '').trim();
@@ -621,6 +649,27 @@
         { color: '#8a5b15', fillColor: '#d6af65' }
       ];
       const boundaryOverlays = {};
+      const coordinateLayer = L.layerGroup().addTo(map);
+      let coordinatePointCount = 0;
+      coordinateData.data.forEach(function(row) {
+        const lat = Number(row.Latitude);
+        const lon = Number(row.Longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return;
+
+        const label = (row.Label || '').trim() || 'Human spraying point';
+        const marker = L.marker([lat, lon], {
+          icon: L.divIcon({
+            className: '',
+            html: '<div class="human-spraying-marker"></div>',
+            iconSize: [18, 18],
+            iconAnchor: [9, 9]
+          })
+        }).bindPopup('<strong>Human spraying point: ' + escapeHtml(label) + '</strong><br>' + lat.toFixed(6) + ', ' + lon.toFixed(6));
+        coordinateLayer.addLayer(marker);
+        coordinatePointCount += 1;
+      });
+      document.getElementById('human-spraying-point-count').textContent = coordinatePointCount.toLocaleString();
+      boundaryOverlays['Human spraying point (' + coordinatePointCount.toLocaleString() + ')'] = coordinateLayer;
       const boundaryLayers = await Promise.all(boundaryDefinitions.map(async function(definition, index) {
         const response = await fetch(definition.file);
         if (!response.ok) throw new Error('Could not load boundary: ' + definition.file);
@@ -647,6 +696,9 @@
 
       const bounds = [];
       const seen = new Set();
+      coordinateLayer.eachLayer(function(marker) {
+        bounds.push([marker.getLatLng().lat, marker.getLatLng().lng]);
+      });
 
       imageCollections.forEach(function(collection) {
         collection.fileNames.forEach(function(fileName) {
